@@ -1,0 +1,22 @@
+{
+  "name": "ps-cube",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "build": "pulp build && webpack",
+    "start": "npm run build && webpack-dev-server --content-base public/ --hot --inline",
+    "watch": "pulp --watch build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "webpack": "^3.5.5",
+    "webpack-dev-server": "^2.7.1"
+  }
+}
