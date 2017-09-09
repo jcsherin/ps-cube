@@ -1,7 +1,9 @@
 module Geometry.Cube where
 
 import Prelude
+
 import Geometry.Point (Point, point)
+import Math (cos, sin)
 
 origin :: Point
 origin = { x: 0.0, y: 0.0, z: 0.0 }
@@ -55,3 +57,11 @@ faces edge = makeVertices edge <$> [ [ fbl, fbr, ftr, ftl ]
                                    , [ fbl, rbl, rtl, ftl ]
                                    , [ fbr, rbr, rtr, ftr ]
                                    ]
+
+rotateY :: Number -> Point -> Point
+rotateY theta {x, y, z} = point
+  (x * cos theta - z * sin theta) y (z * cos theta + x * sin theta)
+
+rotateX :: Number -> Point -> Point
+rotateX theta {x, y, z} = point
+  x (y * cos theta - z * sin theta) (z * cos theta + y * sin theta)

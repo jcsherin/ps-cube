@@ -3,7 +3,7 @@ module Main where
 import Prelude
 
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Console (CONSOLE)
 import DOM (DOM)
 import DOM.HTML (window)
 import DOM.HTML.Window (requestAnimationFrame)
@@ -11,9 +11,9 @@ import Data.Array (head, tail)
 import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..), fromJust)
-import Geometry.Cube (faces)
-import Geometry.Point (orthographic, showPoint2D)
-import Graphics.Canvas (CANVAS, Context2D, beginPath, clearRect, closePath, getCanvasElementById, getContext2D, lineTo, moveTo, setStrokeStyle, stroke, translate)
+import Geometry.Cube (faces, rotateX, rotateY)
+import Geometry.Point (orthographic)
+import Graphics.Canvas (CANVAS, Context2D, LineCap(..), beginPath, clearRect, closePath, getCanvasElementById, getContext2D, lineTo, moveTo, setLineCap, setLineWidth, setStrokeStyle, stroke, translate)
 import Partial.Unsafe (unsafePartial)
 
 animate :: forall e. Context2D -> Eff (console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
@@ -23,10 +23,13 @@ animate ctx = void do
 
 drawCube :: forall e. Context2D -> Eff (console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
 drawCube ctx = void $ do
-  let projected = map orthographic <$> faces 150.0
+  let rotateX' = rotateX 0.35
+  let rotateY' = rotateY 0.35
+  let projected = map orthographic <$> map rotateX' <$> map rotateY' <$> faces 40.0
   for_ projected \face -> do
 
     let hd = unsafePartial $ fromJust $ head face
+    _ <- beginPath ctx
     _ <- moveTo ctx hd.x hd.y
 
     let tl = unsafePartial $ fromJust $ tail face
@@ -49,8 +52,9 @@ main :: forall e. Partial => Eff (console :: CONSOLE, canvas :: CANVAS, dom :: D
 main = void do
   Just canvas <- getCanvasElementById "canvas"
   ctx <- getContext2D canvas
+
   _ <- clearRect ctx { x: 0.0, y: 0.0, w: 600.0, h: 400.0}
   _ <- translate { translateX: 300.0, translateY: 200.0} ctx
-  _ <- setStrokeStyle "rgba(0, 0, 0, 0.3)" ctx
+  _ <- setStrokeStyle "#ff0000" ctx
 
   animate ctx
