@@ -108,5 +108,5 @@ main = void do
   addEventHandler "mousemove" $ rotate dragged prevX prevY deltaX deltaY
   addEventHandler "mouseup" $ release dragged
 
-  let cube = (map $ rotateX 0.0) <$> (map $ rotateY 0.0) <$> faces 100.0
+  let cube = (map $ rotateX (-0.17)) <$> (map $ rotateY 0.17) <$> faces 100.0
   animate ctx deltaX deltaY dragged cube
