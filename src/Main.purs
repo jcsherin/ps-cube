@@ -23,21 +23,27 @@ import Data.Maybe (Maybe(..), fromJust)
 import Geometry.Cube (faces, rotateX, rotateY)
 import Geometry.Point (Point, orthographic)
 import Graphics.Canvas (CANVAS, Context2D, beginPath, clearRect, closePath, getCanvasElementById, getContext2D, lineTo, moveTo, setLineWidth, setStrokeStyle, stroke, translate)
-import Math (pi, round)
+import Math (abs, pi, round)
 import Partial.Unsafe (unsafePartial)
 
-animate :: forall e. Context2D -> Ref Int -> Ref Int -> Ref Boolean -> Array (Array Point) -> Eff (ref :: REF, console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
+decelerate :: Number -> Number -> Number
+decelerate rad factor = if (abs rad) > 0.009
+  then rad * factor
+  else 0.0
+
+animate :: forall e. Context2D -> Ref Number -> Ref Number -> Ref Boolean -> Array (Array Point) -> Eff (ref :: REF, console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
 animate ctx deltaX deltaY dragged cube = void do
   _ <- clearRect ctx { x: -300.0, y: -200.0, w: 600.0, h: 400.0}
 
   dx <- readRef deltaX
   dy <- readRef deltaY
   drg <- readRef dragged
-  let rotateX' = if drg then rotateX $ toNumber (-dy) * pi / 180.0 else rotateX 0.0
-  let rotateY' = if drg then rotateY $ toNumber dx * pi / 180.0 else rotateY 0.0
-  let rotated = if drg then map rotateX' <$> map rotateY' <$> cube else cube
+  let rotated = map (rotateX dy) <$> map (rotateY dx) <$> cube
 
   drawCube ctx rotated
+
+  modifyRef deltaX (\x -> decelerate x 0.95)
+  modifyRef deltaY (\y -> decelerate y 0.95)
 
   window >>= requestAnimationFrame (animate ctx deltaX deltaY dragged rotated)
 
@@ -62,14 +68,18 @@ lock dragged prevX prevY e = do
   modifyRef prevX (\x -> clientX e)
   modifyRef prevY (\y -> clientY e)
 
-rotate :: forall e. Ref Boolean -> Ref Int -> Ref Int -> Ref Int -> Ref Int -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+rotate :: forall e. Ref Boolean -> Ref Int -> Ref Int -> Ref Number -> Ref Number -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
 rotate dragged prevX prevY deltaX deltaY e = do
-  px <- readRef prevX
-  py <- readRef prevY
-  modifyRef deltaX (\x -> clientX e - px)
-  modifyRef deltaY (\y -> clientY e - py)
-  modifyRef prevX (\x -> clientX e)
-  modifyRef prevY (\y -> clientY e)
+  drg <- readRef dragged
+  if drg
+    then do
+      px <- readRef prevX
+      py <- readRef prevY
+      modifyRef deltaX (\x -> toNumber (clientX e - px) * pi / 180.0)
+      modifyRef deltaY (\y -> toNumber (- (clientY e - py)) * pi / 180.0)
+      modifyRef prevX (\x -> clientX e)
+      modifyRef prevY (\y -> clientY e)
+    else pure unit
 
 release :: forall e. Ref Boolean -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
 release dragged e = do
@@ -101,8 +111,8 @@ main = void do
   dragged <- newRef false
   prevX <- newRef 0
   prevY <- newRef 0
-  deltaX <- newRef 0
-  deltaY <- newRef 0
+  deltaX <- newRef 0.0
+  deltaY <- newRef 0.0
 
   addEventHandler "mousedown" $ lock dragged prevX prevY
   addEventHandler "mousemove" $ rotate dragged prevX prevY deltaX deltaY
