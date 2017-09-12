@@ -5,9 +5,6 @@ import Prelude
 import Geometry.Point (Point, point)
 import Math (cos, sin)
 
-origin :: Point
-origin = { x: 0.0, y: 0.0, z: 0.0 }
-
 -- front bottom left
 fbl :: Number -> Point
 fbl edge = point (-edge) (-edge) (-edge)
@@ -46,9 +43,6 @@ makeVertex edge f = f edge
 makeVertices :: forall a. Functor a => Number -> a (Number -> Point) -> a Point
 makeVertices edge fs = makeVertex edge <$> fs
 
-vertices :: Number -> Array Point
-vertices edge = makeVertex edge <$> [fbl, fbr, rbl, rbr, ftl, ftr, rtl, rtr]
-
 faces :: Number -> Array (Array Point)
 faces edge = makeVertices edge <$> [ [ fbl, fbr, ftr, ftl ]
                                    , [ rbl, rbr, rtr, rtl ]
@@ -65,3 +59,8 @@ rotateY theta {x, y, z} = point
 rotateX :: Number -> Point -> Point
 rotateX theta {x, y, z} = point
   x (y * cos theta - z * sin theta) (z * cos theta + y * sin theta)
+
+tiltedCube :: Number -> Number -> Number -> Array (Array Point)
+tiltedCube radX radY edge = (map $ rotateX radX) <$>
+  (map $ rotateY radY) <$>
+  faces edge

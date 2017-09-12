@@ -13,7 +13,7 @@ import Data.Foldable (for_)
 import Data.Maybe (Maybe(..), fromJust)
 import Events.Mouse (addMouseEventHandler, handleClick, handleMouseDown, handleMouseMove, handleMouseUp)
 import Events.Touch (addTouchEventHandler, handleTouchEnd, handleTouchMove, handleTouchStart)
-import Geometry.Cube (faces, rotateX, rotateY)
+import Geometry.Cube (rotateX, rotateY, tiltedCube)
 import Geometry.Point (Point, Point2D, orthographic)
 import Graphics.Canvas (CANVAS, Context2D, beginPath, clearRect, closePath, getCanvasElementById, getContext2D, lineTo, moveTo, setLineWidth, setStrokeStyle, stroke, translate)
 import Math (round)
@@ -55,32 +55,35 @@ drawCube ctx cube = void $ do
   for_ (map orthographic <$> cube) \face ->
     drawCubeFace ctx face
 
-main :: forall e. Partial => Eff (ref :: REF, console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
-main = void do
-  Just canvas <- getCanvasElementById "canvas"
-  ctx <- getContext2D canvas
-
-  _ <- translate { translateX: 300.0, translateY: 200.0} ctx
-  _ <- setStrokeStyle "#ff0000" ctx
-  _ <- setLineWidth 1.0 ctx
-
-  state <- newRef {  dragged : false
-                  , prevX : 0
-                  , prevY : 0
-                  , deltaX : 0.0
-                  , deltaY : 0.0 }
-
-  let selector = "canvas"
-
+initEventHandlers :: forall e. Partial => String -> Ref State -> Eff (ref :: REF, console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
+initEventHandlers selector state = do
   addMouseEventHandler selector "mousedown" $ handleMouseDown state
   addMouseEventHandler selector "mousemove" $ handleMouseMove state
   addMouseEventHandler selector "mouseup" $ handleMouseUp state
+  addMouseEventHandler selector "click" $ handleClick state
 
   addTouchEventHandler selector "touchstart" $ handleTouchStart state
   addTouchEventHandler selector "touchmove" $ handleTouchMove state
   addTouchEventHandler selector "touchend" $ handleTouchEnd state
 
-  addMouseEventHandler selector "click" $ handleClick state
 
-  let cube = (map $ rotateX (-0.17)) <$> (map $ rotateY 0.17) <$> faces 100.0
-  animate ctx state cube
+main :: forall e. Partial => Eff (ref :: REF, console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
+main = void do
+  state <- newRef {  dragged : false
+                  , prevX : 0
+                  , prevY : 0
+                  , deltaX : 0.0
+                  , deltaY : 0.0
+                  }
+  let selector = "canvas"
+
+  mCanvas <- getCanvasElementById selector
+  case mCanvas of
+    Just canvas -> do
+      ctx <- getContext2D canvas
+      _ <- translate { translateX: 300.0, translateY: 200.0} ctx
+      _ <- setStrokeStyle "#ff0000" ctx
+      _ <- setLineWidth 1.0 ctx
+      initEventHandlers selector state
+      animate ctx state $ tiltedCube (-0.17) (0.17) 100.0
+    Nothing -> pure unit
