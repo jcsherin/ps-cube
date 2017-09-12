@@ -46,7 +46,7 @@ animate ctx state cube = void do
   let rotated = map (rotateX current.deltaY) <$> map (rotateY current.deltaX) <$> cube
   drawCube ctx rotated
 
-  modifyRef state (\s -> {  dragged : true
+  modifyRef state (\s -> {  dragged : s.dragged
                           , prevX   : s.prevX
                           , prevY   : s.prevY
                           , deltaX  : decelerate s.deltaX 0.95
