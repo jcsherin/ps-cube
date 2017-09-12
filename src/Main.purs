@@ -50,8 +50,8 @@ animate ctx state cube = void do
   modifyRef state (\s -> {  dragged : s.dragged
                           , prevX   : s.prevX
                           , prevY   : s.prevY
-                          , deltaX  : decelerate s.deltaX 0.95
-                          , deltaY  : decelerate s.deltaY 0.95
+                          , deltaX  : decelerate s.deltaX 0.99
+                          , deltaY  : decelerate s.deltaY 0.99
                           })
   window >>= requestAnimationFrame (animate ctx state rotated)
 
@@ -99,6 +99,23 @@ handleTouchEnd :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: 
 handleTouchEnd state e = do
   current <- readRef state
   modifyRef state (\s -> release s {x : T.clientX e, y: T.clientY e})
+
+handleClick :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleClick state e = do
+  current <- readRef state
+  modifyRef state (\s -> friction s {x : clientX e, y: clientY e})
+
+friction :: State -> { x :: Int, y :: Int } -> State
+friction state _ = do
+  if state.dragged == false
+    then do
+      { dragged : state.dragged
+      , prevX   : state.prevX
+      , prevY   : state.prevY
+      , deltaX  : decelerate state.deltaX 0.1
+      , deltaY  : decelerate state.deltaY 0.1
+      }
+    else state
 
 lock :: State -> { x :: Int, y :: Int } -> State
 lock state {x, y} = { dragged : true
@@ -177,9 +194,12 @@ main = void do
   addMouseEventHandler "mousedown" $ handleMouseDown state
   addMouseEventHandler "mousemove" $ handleMouseMove state
   addMouseEventHandler "mouseup" $ handleMouseUp state
+
   addTouchEventHandler "touchstart" $ handleTouchStart state
   addTouchEventHandler "touchmove" $ handleTouchMove state
   addTouchEventHandler "touchend" $ handleTouchEnd state
+
+  addMouseEventHandler "click" $ handleClick state
 
   let cube = (map $ rotateX (-0.17)) <$> (map $ rotateY 0.17) <$> faces 100.0
   animate ctx state cube
