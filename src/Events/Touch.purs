@@ -1,8 +1,8 @@
 module Events.Touch where
 
 import Prelude
-import Control.Monad.Eff.Ref (REF, Ref, modifyRef, readRef)
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Ref (REF, Ref)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Except (runExcept)
 import DOM (DOM)
@@ -17,22 +17,7 @@ import DOM.Node.Types (elementToEventTarget)
 import Data.Either (Either(..))
 import Partial.Unsafe (unsafePartial)
 import Data.Maybe (Maybe(..), fromJust)
-import Model (State, lock, release, rotate)
-
-handleTouchStart :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
-handleTouchStart state e = do
-  current <- readRef state
-  modifyRef state (\s -> lock s {x : T.clientX e, y: T.clientY e})
-
-handleTouchMove :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
-handleTouchMove state e = do
-  current <- readRef state
-  modifyRef state (\s -> rotate s {x : T.clientX e, y: T.clientY e})
-
-handleTouchEnd :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
-handleTouchEnd state e = do
-  current <- readRef state
-  modifyRef state (\s -> release s {x : T.clientX e, y: T.clientY e})
+import Model (State, lock, release, rotate, updateState)
 
 makeTouchEventHandler :: forall e. (T.Touch-> Eff e Unit) -> EventListener e
 makeTouchEventHandler on = eventListener (\ev -> do
@@ -43,9 +28,19 @@ makeTouchEventHandler on = eventListener (\ev -> do
     Left err -> pure unit
   )
 
-addTouchEventHandler :: forall e. Partial => String -> (T.Touch -> Eff (dom :: DOM |e) Unit) -> Eff (dom :: DOM | e) Unit
-addTouchEventHandler e f = do
+addTouchEventHandler :: forall e. Partial => String -> String -> (T.Touch -> Eff (dom :: DOM |e) Unit) -> Eff (dom :: DOM | e) Unit
+addTouchEventHandler s e f = do
   doc <- window >>= document
-  Just elem <- querySelector (QuerySelector "canvas") (htmlDocumentToParentNode doc)
+  Just elem <- querySelector (QuerySelector s) (htmlDocumentToParentNode doc)
 
   addEventListener (EventType e) (makeTouchEventHandler f) false (elementToEventTarget elem)
+
+handleTouchStart :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleTouchStart state e = updateState (lock {x : T.clientX e, y: T.clientY e}) state
+
+handleTouchMove :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleTouchMove state e = updateState (rotate {x : T.clientX e, y: T.clientY e}) state
+
+handleTouchEnd :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleTouchEnd state e = updateState (release {x : T.clientX e, y: T.clientY e}) state
+

@@ -1,8 +1,11 @@
 module Model where
 
 import Prelude
-import Math (abs, pi)
+
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Ref (REF, Ref, modifyRef, readRef)
 import Data.Int (toNumber)
+import Math (abs, pi)
 
 type State = {  dragged :: Boolean
               , prevX :: Int
@@ -16,28 +19,28 @@ decelerate rad factor = if (abs rad) > 0.009
   then rad * factor
   else 0.0
 
-friction :: State -> { x :: Int, y :: Int } -> State
-friction state _ = do
+friction :: Number -> State -> State
+friction factor state = do
   if state.dragged == false
     then do
       { dragged : state.dragged
       , prevX   : state.prevX
       , prevY   : state.prevY
-      , deltaX  : decelerate state.deltaX 0.1
-      , deltaY  : decelerate state.deltaY 0.1
+      , deltaX  : decelerate state.deltaX factor
+      , deltaY  : decelerate state.deltaY factor
       }
     else state
 
-lock :: State -> { x :: Int, y :: Int } -> State
-lock state {x, y} = { dragged : true
+lock :: { x :: Int, y :: Int } -> State -> State
+lock {x, y} state = { dragged : true
                     , prevX : x
                     , prevY: y
                     , deltaX: state.deltaX
                     , deltaY: state.deltaY
                     }
 
-rotate :: State -> {x :: Int, y :: Int } -> State
-rotate state {x, y} = do
+rotate :: { x :: Int, y :: Int } -> State -> State
+rotate {x, y} state = do
   if state.dragged == true
     then do
       { dragged : state.dragged
@@ -48,11 +51,16 @@ rotate state {x, y} = do
       }
     else state
 
-release :: State -> {x :: Int, y :: Int } -> State
-release state {x, y} = do
+release :: { x :: Int, y :: Int } -> State -> State
+release {x, y} state = do
   { dragged : false
   , prevX   : state.prevX
   , prevY   : state.prevY
   , deltaX  : state.deltaX
   , deltaY  : state.deltaY
   }
+
+updateState :: forall e. (State -> State) -> Ref State -> Eff (ref :: REF | e) Unit
+updateState f state = do
+  current <- readRef state
+  modifyRef state (\s -> f s)

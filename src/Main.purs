@@ -66,15 +66,17 @@ main = void do
                   , deltaX : 0.0
                   , deltaY : 0.0 }
 
-  addMouseEventHandler "mousedown" $ handleMouseDown state
-  addMouseEventHandler "mousemove" $ handleMouseMove state
-  addMouseEventHandler "mouseup" $ handleMouseUp state
+  let selector = "canvas"
 
-  addTouchEventHandler "touchstart" $ handleTouchStart state
-  addTouchEventHandler "touchmove" $ handleTouchMove state
-  addTouchEventHandler "touchend" $ handleTouchEnd state
+  addMouseEventHandler selector "mousedown" $ handleMouseDown state
+  addMouseEventHandler selector "mousemove" $ handleMouseMove state
+  addMouseEventHandler selector "mouseup" $ handleMouseUp state
 
-  addMouseEventHandler "click" $ handleClick state
+  addTouchEventHandler selector "touchstart" $ handleTouchStart state
+  addTouchEventHandler selector "touchmove" $ handleTouchMove state
+  addTouchEventHandler selector "touchend" $ handleTouchEnd state
+
+  addMouseEventHandler selector "click" $ handleClick state
 
   let cube = (map $ rotateX (-0.17)) <$> (map $ rotateY 0.17) <$> faces 100.0
   animate ctx state cube
