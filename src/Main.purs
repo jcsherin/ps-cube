@@ -8,16 +8,18 @@ import Control.Monad.Eff.Ref (REF, Ref, modifyRef, newRef, readRef)
 import DOM (DOM)
 import DOM.HTML (window)
 import DOM.HTML.Window (requestAnimationFrame)
+import DOM.Event.TouchEvent as T
+import DOM.Event.MouseEvent (MouseEvent, clientX, clientY)
 import Data.Array (head, tail)
 import Data.Foldable (for_)
 import Data.Maybe (Maybe(..), fromJust)
-import Events.Mouse (addMouseEventHandler, handleClick, handleMouseDown, handleMouseMove, handleMouseUp)
-import Events.Touch (addTouchEventHandler, handleTouchEnd, handleTouchMove, handleTouchStart)
+import Events.Mouse (addMouseEventHandler)
+import Events.Touch (addTouchEventHandler)
 import Geometry.Cube (rotateX, rotateY, tiltedCube)
 import Geometry.Point (Point, Point2D, orthographic)
 import Graphics.Canvas (CANVAS, Context2D, beginPath, clearRect, closePath, getCanvasElementById, getContext2D, lineTo, moveTo, setLineWidth, setStrokeStyle, stroke, translate)
 import Math (round)
-import Model (State, decelerate)
+import Model (State, decelerate, updateState, lock, rotate, release, friction)
 import Partial.Unsafe (unsafePartial)
 
 animate :: forall e. Context2D -> Ref State -> Array (Array Point) -> Eff (ref :: REF, console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
@@ -54,6 +56,27 @@ drawCube :: forall e. Context2D -> Array (Array Point) -> Eff (console :: CONSOL
 drawCube ctx cube = void $ do
   for_ (map orthographic <$> cube) \face ->
     drawCubeFace ctx face
+
+handleMouseDown :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleMouseDown state e = updateState (lock {x : clientX e, y: clientY e}) state
+
+handleMouseMove :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleMouseMove state e = updateState (rotate {x : clientX e, y: clientY e}) state
+
+handleMouseUp :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleMouseUp state e = updateState (release {x : clientX e, y: clientY e}) state
+
+handleClick :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleClick state e = updateState (friction 0.1) state
+
+handleTouchStart :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleTouchStart state e = updateState (lock {x : T.clientX e, y: T.clientY e}) state
+
+handleTouchMove :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleTouchMove state e = updateState (rotate {x : T.clientX e, y: T.clientY e}) state
+
+handleTouchEnd :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleTouchEnd state e = updateState (release {x : T.clientX e, y: T.clientY e}) state
 
 initEventHandlers :: forall e. Partial => String -> Ref State -> Eff (ref :: REF, console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
 initEventHandlers selector state = do
