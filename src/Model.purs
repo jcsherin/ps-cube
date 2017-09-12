@@ -47,7 +47,7 @@ rotate {x, y} state = do
       , prevX   : x
       , prevY   : y
       , deltaX  : toNumber (x - state.prevX) * pi / 180.0
-      , deltaY  : toNumber (- (y - state.prevY)) * pi / 180.0
+      , deltaY  : toNumber (y - state.prevY) * pi / 180.0
       }
     else state
 

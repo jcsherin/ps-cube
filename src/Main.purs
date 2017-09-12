@@ -27,7 +27,8 @@ animate ctx w h state cube = void do
   _ <- clearRect ctx { x: -(w / 2.0), y: -(h / 2.0), w: w, h: h}
 
   current <- readRef state
-  let rotated = map (rotateX current.deltaY) <$> map (rotateY current.deltaX) <$> cube
+  -- log $ show current.dragged <> " . " <> show current.deltaX  <> " . " <> show (-current.deltaY)
+  let rotated = map (rotateX (-current.deltaY)) <$> map (rotateY current.deltaX) <$> cube
   drawCube ctx rotated
 
   updateState (friction 0.90) state
@@ -61,8 +62,8 @@ handleMouseMove state e = updateState (rotate {x : clientX e, y: clientY e}) sta
 handleMouseUp :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
 handleMouseUp state e = updateState (release {x : clientX e, y: clientY e}) state
 
-handleClick :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
-handleClick state e = updateState (friction 0.1) state
+-- handleClick :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+-- handleClick state e = updateState (friction 0.1) state
 
 handleTouchStart :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
 handleTouchStart state e = updateState (lock {x : T.clientX e, y: T.clientY e}) state
@@ -78,7 +79,7 @@ initEventHandlers selector state = do
   addMouseEventHandler selector "mousedown" $ handleMouseDown state
   addMouseEventHandler selector "mousemove" $ handleMouseMove state
   addMouseEventHandler selector "mouseup" $ handleMouseUp state
-  addMouseEventHandler selector "click" $ handleClick state
+  -- addMouseEventHandler selector "click" $ handleClick state
 
   addTouchEventHandler selector "touchstart" $ handleTouchStart state
   addTouchEventHandler selector "touchmove" $ handleTouchMove state
