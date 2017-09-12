@@ -3,12 +3,13 @@ module Main where
 import Prelude
 
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Ref (REF, Ref, modifyRef, newRef, readRef)
 import Control.Monad.Except (runExcept)
 import DOM (DOM)
 import DOM.Event.EventTarget (EventListener, addEventListener, eventListener)
 import DOM.Event.MouseEvent (MouseEvent, clientX, clientY, eventToMouseEvent)
+import DOM.Event.TouchEvent as T
 import DOM.Event.Types (EventType(..))
 import DOM.HTML (window)
 import DOM.HTML.Types (htmlDocumentToParentNode)
@@ -69,52 +70,94 @@ drawCube ctx cube = void $ do
     _ <- closePath ctx
     stroke ctx
 
-lock :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
-lock state e = do
+handleMouseDown :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleMouseDown state e = do
   current <- readRef state
-  modifyRef state (\s -> {  dragged : true
-                          , prevX   : clientX e
-                          , prevY   : clientY e
-                          , deltaX  : s.deltaX
-                          , deltaY  : s.deltaY
-                          })
+  modifyRef state (\s -> lock s {x : clientX e, y: clientY e})
 
-rotate :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
-rotate state e = do
+handleMouseMove :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleMouseMove state e = do
   current <- readRef state
-  if current.dragged == true
+  modifyRef state (\s -> rotate s {x : clientX e, y: clientY e})
+
+handleMouseUp :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleMouseUp state e = do
+  current <- readRef state
+  modifyRef state (\s -> release s {x : clientX e, y: clientY e})
+
+handleTouchStart :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleTouchStart state e = do
+  current <- readRef state
+  modifyRef state (\s -> lock s {x : T.clientX e, y: T.clientY e})
+
+handleTouchMove :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleTouchMove state e = do
+  current <- readRef state
+  modifyRef state (\s -> rotate s {x : T.clientX e, y: T.clientY e})
+
+handleTouchEnd :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
+handleTouchEnd state e = do
+  current <- readRef state
+  modifyRef state (\s -> release s {x : T.clientX e, y: T.clientY e})
+
+lock :: State -> { x :: Int, y :: Int } -> State
+lock state {x, y} = { dragged : true
+                    , prevX : x
+                    , prevY: y
+                    , deltaX: state.deltaX
+                    , deltaY: state.deltaY
+                    }
+
+rotate :: State -> {x :: Int, y :: Int } -> State
+rotate state {x, y} = do
+  if state.dragged == true
     then do
-      modifyRef state (\s -> {  dragged : s.dragged
-                              , prevX   : clientX e
-                              , prevY   : clientY e
-                              , deltaX  : toNumber (clientX e - s.prevX) * pi / 180.0
-                              , deltaY  : toNumber (- (clientY e - s.prevY)) * pi / 180.0
-                              })
-    else pure unit
+      { dragged : state.dragged
+      , prevX   : x
+      , prevY   : y
+      , deltaX  : toNumber (x - state.prevX) * pi / 180.0
+      , deltaY  : toNumber (- (y - state.prevY)) * pi / 180.0
+      }
+    else state
 
-release :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
-release state e = do
-  current <- readRef state
-  modifyRef state (\s -> {  dragged : false
-                          , prevX   : s.prevX
-                          , prevY   : s.prevY
-                          , deltaX  : s.deltaX
-                          , deltaY  : s.deltaY
-                          })
+release :: State -> {x :: Int, y :: Int } -> State
+release state {x, y} = do
+  { dragged : false
+  , prevX   : state.prevX
+  , prevY   : state.prevY
+  , deltaX  : state.deltaX
+  , deltaY  : state.deltaY
+  }
 
-makeEventHandler :: forall e. (MouseEvent -> Eff e Unit) -> EventListener e
-makeEventHandler on = eventListener (\ev -> do
+makeMouseEventHandler :: forall e. (MouseEvent -> Eff e Unit) -> EventListener e
+makeMouseEventHandler on = eventListener (\ev -> do
   case (runExcept $ eventToMouseEvent ev) of
     Right e -> on e
     Left err -> pure unit
   )
 
-addEventHandler :: forall e. Partial => String -> (MouseEvent -> Eff (dom :: DOM |e) Unit) -> Eff (dom :: DOM | e) Unit
-addEventHandler e f = do
+addMouseEventHandler :: forall e. Partial => String -> (MouseEvent -> Eff (dom :: DOM |e) Unit) -> Eff (dom :: DOM | e) Unit
+addMouseEventHandler e f = do
   doc <- window >>= document
   Just elem <- querySelector (QuerySelector "canvas") (htmlDocumentToParentNode doc)
 
-  addEventListener (EventType e) (makeEventHandler f) false (elementToEventTarget elem)
+  addEventListener (EventType e) (makeMouseEventHandler f) false (elementToEventTarget elem)
+
+makeTouchEventHandler :: forall e. (T.Touch-> Eff e Unit) -> EventListener e
+makeTouchEventHandler on = eventListener (\ev -> do
+  case (runExcept $ T.eventToTouchEvent ev) of
+    Right e -> do
+      let touch = unsafePartial $ fromJust $ T.item 0 $ T.changedTouches e
+      on touch
+    Left err -> pure unit
+  )
+
+addTouchEventHandler :: forall e. Partial => String -> (T.Touch -> Eff (dom :: DOM |e) Unit) -> Eff (dom :: DOM | e) Unit
+addTouchEventHandler e f = do
+  doc <- window >>= document
+  Just elem <- querySelector (QuerySelector "canvas") (htmlDocumentToParentNode doc)
+
+  addEventListener (EventType e) (makeTouchEventHandler f) false (elementToEventTarget elem)
 
 main :: forall e. Partial => Eff (ref :: REF, console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
 main = void do
@@ -131,9 +174,12 @@ main = void do
                   , deltaX : 0.0
                   , deltaY : 0.0 }
 
-  addEventHandler "mousedown" $ lock state
-  addEventHandler "mousemove" $ rotate state
-  addEventHandler "mouseup" $ release state
+  addMouseEventHandler "mousedown" $ handleMouseDown state
+  addMouseEventHandler "mousemove" $ handleMouseMove state
+  addMouseEventHandler "mouseup" $ handleMouseUp state
+  addTouchEventHandler "touchstart" $ handleTouchStart state
+  addTouchEventHandler "touchmove" $ handleTouchMove state
+  addTouchEventHandler "touchend" $ handleTouchEnd state
 
   let cube = (map $ rotateX (-0.17)) <$> (map $ rotateY 0.17) <$> faces 100.0
   animate ctx state cube
