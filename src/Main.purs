@@ -3,13 +3,13 @@ module Main where
 import Prelude
 
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Ref (REF, Ref, modifyRef, newRef, readRef)
+import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Ref (REF, Ref, newRef, readRef)
 import DOM (DOM)
+import DOM.Event.MouseEvent (MouseEvent, clientX, clientY)
+import DOM.Event.TouchEvent as T
 import DOM.HTML (window)
 import DOM.HTML.Window (requestAnimationFrame)
-import DOM.Event.TouchEvent as T
-import DOM.Event.MouseEvent (MouseEvent, clientX, clientY)
 import Data.Array (head, tail)
 import Data.Foldable (for_)
 import Data.Maybe (Maybe(..), fromJust)
@@ -17,26 +17,21 @@ import Events.Mouse (addMouseEventHandler)
 import Events.Touch (addTouchEventHandler)
 import Geometry.Cube (rotateX, rotateY, tiltedCube)
 import Geometry.Point (Point, Point2D, orthographic)
-import Graphics.Canvas (CANVAS, Context2D, beginPath, clearRect, closePath, getCanvasElementById, getContext2D, lineTo, moveTo, setLineWidth, setStrokeStyle, stroke, translate)
+import Graphics.Canvas (CANVAS, Context2D, beginPath, clearRect, closePath, getCanvasElementById, getCanvasHeight, getCanvasWidth, getContext2D, lineTo, moveTo, setLineWidth, setStrokeStyle, stroke, translate)
 import Math (round)
-import Model (State, decelerate, updateState, lock, rotate, release, friction)
+import Model (State, updateState, lock, rotate, release, friction)
 import Partial.Unsafe (unsafePartial)
 
-animate :: forall e. Context2D -> Ref State -> Array (Array Point) -> Eff (ref :: REF, console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
-animate ctx state cube = void do
-  _ <- clearRect ctx { x: -300.0, y: -200.0, w: 600.0, h: 400.0}
+animate :: forall e. Context2D -> Number -> Number -> Ref State -> Array (Array Point) -> Eff (ref :: REF, console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
+animate ctx w h state cube = void do
+  _ <- clearRect ctx { x: -(w / 2.0), y: -(h / 2.0), w: w, h: h}
 
   current <- readRef state
   let rotated = map (rotateX current.deltaY) <$> map (rotateY current.deltaX) <$> cube
   drawCube ctx rotated
 
-  modifyRef state (\s -> {  dragged : s.dragged
-                          , prevX   : s.prevX
-                          , prevY   : s.prevY
-                          , deltaX  : decelerate s.deltaX 0.99
-                          , deltaY  : decelerate s.deltaY 0.99
-                          })
-  window >>= requestAnimationFrame (animate ctx state rotated)
+  updateState (friction 0.90) state
+  window >>= requestAnimationFrame (animate ctx w h state rotated)
 
 drawCubeFace :: forall e. Context2D -> Array Point2D -> Eff (console :: CONSOLE, canvas :: CANVAS, dom :: DOM | e) Unit
 drawCubeFace ctx face = do
@@ -104,9 +99,11 @@ main = void do
   case mCanvas of
     Just canvas -> do
       ctx <- getContext2D canvas
-      _ <- translate { translateX: 300.0, translateY: 200.0} ctx
+      w <- getCanvasWidth canvas
+      h <- getCanvasHeight canvas
+      _ <- translate { translateX: w / 2.0, translateY: h / 2.0} ctx
       _ <- setStrokeStyle "#ff0000" ctx
       _ <- setLineWidth 1.0 ctx
       initEventHandlers selector state
-      animate ctx state $ tiltedCube (-0.17) (0.17) 100.0
+      animate ctx w h state $ tiltedCube (-0.17) (0.17) 100.0
     Nothing -> pure unit
