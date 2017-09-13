@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "pulp build && webpack",
-    "start": "npm run build && webpack-dev-server --content-base public/ --hot --inline",
+    "start": "npm run build && webpack-dev-server --host 0.0.0.0 --content-base public/ --hot --inline",
     "watch": "pulp --watch build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
