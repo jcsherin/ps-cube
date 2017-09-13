@@ -3,7 +3,7 @@ module Main where
 import Prelude
 
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Ref (REF, Ref, newRef, readRef)
 import DOM (DOM)
 import DOM.Event.MouseEvent (MouseEvent, clientX, clientY)
@@ -27,7 +27,6 @@ animate ctx w h state cube = void do
   _ <- clearRect ctx { x: -(w / 2.0), y: -(h / 2.0), w: w, h: h}
 
   current <- readRef state
-  -- log $ show current.dragged <> " . " <> show current.deltaX  <> " . " <> show (-current.deltaY)
   let rotated = map (rotateX (-current.deltaY)) <$> map (rotateY current.deltaX) <$> cube
   drawCube ctx rotated
 
@@ -62,9 +61,6 @@ handleMouseMove state e = updateState (rotate {x : clientX e, y: clientY e}) sta
 handleMouseUp :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
 handleMouseUp state e = updateState (release {x : clientX e, y: clientY e}) state
 
--- handleClick :: forall e. Ref State -> MouseEvent -> Eff (ref :: REF, console :: CONSOLE | e) Unit
--- handleClick state e = updateState (friction 0.1) state
-
 handleTouchStart :: forall e. Ref State -> T.Touch -> Eff (ref :: REF, console :: CONSOLE | e) Unit
 handleTouchStart state e = updateState (lock {x : T.clientX e, y: T.clientY e}) state
 
@@ -79,7 +75,6 @@ initEventHandlers selector state = do
   addMouseEventHandler selector "mousedown" $ handleMouseDown state
   addMouseEventHandler selector "mousemove" $ handleMouseMove state
   addMouseEventHandler selector "mouseup" $ handleMouseUp state
-  -- addMouseEventHandler selector "click" $ handleClick state
 
   addTouchEventHandler selector "touchstart" $ handleTouchStart state
   addTouchEventHandler selector "touchmove" $ handleTouchMove state
@@ -106,5 +101,5 @@ main = void do
       _ <- setStrokeStyle "#ff0000" ctx
       _ <- setLineWidth 1.0 ctx
       initEventHandlers selector state
-      animate ctx w h state $ tiltedCube (-0.17) (0.17) 100.0
+      animate ctx w h state $ tiltedCube (-0.17) (0.17) 75.0
     Nothing -> pure unit
